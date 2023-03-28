@@ -12,7 +12,7 @@ data class Call(
     @SerializedName("number")
     val number: String,
     @SerializedName("duration")
-    val duration: String,
+    val duration: Int,
     @SerializedName("type")
-    val type: String
+    val type: Int
 )

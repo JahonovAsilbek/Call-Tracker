@@ -2,18 +2,17 @@ package uz.asaxiy.calltracker.data.service
 
 import android.content.Context
 import android.database.Cursor
-import android.media.MediaPlayer
 import android.provider.CallLog
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uz.asaxiy.calltracker.R
 import uz.asaxiy.calltracker.data.locale.AppDatabase
 import uz.asaxiy.calltracker.data.locale.entity.Call
 import uz.asaxiy.calltracker.data.remote.ApiClient
 import uz.asaxiy.calltracker.util.NetworkHelper
+import uz.asaxiy.calltracker.util.formatPhone
 import java.lang.Long
 import java.util.*
 import kotlin.Int
@@ -40,27 +39,28 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
                 val date: Int = managedCursor.getColumnIndex(CallLog.Calls.DATE)
                 val duration: Int = managedCursor.getColumnIndex(CallLog.Calls.DURATION)
                 while (managedCursor.moveToNext()) {
-                    val phNumber: String = managedCursor.getString(number)
+                    val phNumber: String = managedCursor.getString(number).formatPhone()
                     val callType: String = managedCursor.getString(type)
                     val callDate: String = managedCursor.getString(date)
                     val callDayTime = Date(Long.valueOf(callDate))
-                    val callDuration: String = managedCursor.getString(duration)
-                    var dir = ""
+                    val callDuration: Int? = managedCursor.getString(duration).toIntOrNull()
+//                    var dir = ""
                     val dircode = callType.toInt()
-                    when (dircode) {
-                        CallLog.Calls.OUTGOING_TYPE -> dir = "OUTGOING"
-                        CallLog.Calls.INCOMING_TYPE -> dir = "INCOMING"
-                        CallLog.Calls.MISSED_TYPE -> dir = "MISSED"
-                    }
+//                    when (dircode) {
+//                        CallLog.Calls.OUTGOING_TYPE -> dir = "OUTGOING"
+//                        CallLog.Calls.INCOMING_TYPE -> dir = "INCOMING"
+//                        CallLog.Calls.MISSED_TYPE -> dir = "MISSED"
+//                    }
 
                     val call = Call(
                         date = callDayTime.time.toString(),
                         number = phNumber,
-                        duration = callDuration,
-                        type = dir
+                        duration = callDuration ?: 0,
+                        type = dircode
                     )
 
-                    callLogs.add(call)
+                    if (phNumber.isNotEmpty())
+                        callLogs.add(call)
                 }
                 managedCursor.close()
 

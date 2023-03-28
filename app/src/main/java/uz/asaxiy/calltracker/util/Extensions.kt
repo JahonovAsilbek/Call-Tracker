@@ -1,5 +1,6 @@
 package uz.asaxiy.calltracker.util
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -71,5 +72,18 @@ fun Fragment.callAsaxiy() {
     val phone = "+998712000105"
     val intent = Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phone, null))
     startActivity(intent)
+}
+
+fun String.formatPhone(): String {
+    return when (this.length) {
+        9 -> "+998$this"
+        13 -> this
+        else -> ""
+    }
+}
+
+@SuppressLint("SimpleDateFormat")
+fun Long.formatDate(): String {
+    return SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Date(this))
 }
 
