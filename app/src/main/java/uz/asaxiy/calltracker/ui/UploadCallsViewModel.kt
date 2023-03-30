@@ -8,10 +8,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
-import uz.asaxiy.calltracker.data.locale.entity.Call
+import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.data.remote.ApiClient
+import uz.asaxiy.calltracker.domain.dto.CallRequest
+import uz.asaxiy.calltracker.util.MyLocalStorage
 import uz.asaxiy.calltracker.util.Resource
-import uz.asaxiy.calltracker.util.formatDate
 import uz.asaxiy.calltracker.util.formatPhone
 import java.lang.Long
 import java.util.*
@@ -29,8 +30,9 @@ class UploadCallsViewModel : ViewModel() {
     private val _callHistory: MutableSharedFlow<Resource> = MutableSharedFlow()
     val callHistory get() = _callHistory
 
-    fun getCallHistory(context: Context, uploadToServer: Boolean = false) {
+    fun getCallHistory(context: Context, uploadToServer: Boolean = true) {
         val callLogs = ArrayList<Call>()
+        var historyTime = 0L //gaplashilgan vaqti
 
         viewModelScope.launch(Dispatchers.IO) {
 
@@ -53,6 +55,7 @@ class UploadCallsViewModel : ViewModel() {
                         val callType: String = managedCursor.getString(type)
                         val callDate: String = managedCursor.getString(date)
                         val callDayTime = Date(Long.valueOf(callDate))
+                        historyTime = callDayTime.time
                         val callDuration: Int? = managedCursor.getString(duration).toIntOrNull()
 //                        var dir = ""
                         val dircode = callType.toInt()
@@ -62,14 +65,16 @@ class UploadCallsViewModel : ViewModel() {
 //                            CallLog.Calls.MISSED_TYPE -> dir = "MISSED"
 //                        }
 
+                        val currentTime = System.currentTimeMillis()
+
                         val call = Call(
-                            date = callDayTime.time.formatDate(),
+                            date = callDayTime.time,
                             number = phNumber.formatPhone(),
                             duration = callDuration ?: 0,
                             type = dircode
                         )
 
-                        if (phNumber.isNotEmpty())
+                        if (phNumber.isNotEmpty() && (currentTime - callDayTime.time < 86400000))
                             callLogs.add(call)
                     }
                     managedCursor.close()
@@ -87,7 +92,9 @@ class UploadCallsViewModel : ViewModel() {
 
     private fun uploadCalls(calls: List<Call>) {
         viewModelScope.launch {
-            val response = ApiClient.apiService.postCall(list = calls)
+            val response = ApiClient.apiService.postCall(
+                CallRequest(MyLocalStorage.userPhoneNumber ?: "", calls)
+            )
             if (response.isSuccessful) {
                 _uploadState.emit(Resource.Success(response.body()))
             } else {

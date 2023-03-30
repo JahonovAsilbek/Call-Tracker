@@ -8,10 +8,10 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uz.asaxiy.calltracker.data.locale.AppDatabase
-import uz.asaxiy.calltracker.data.locale.entity.Call
 import uz.asaxiy.calltracker.data.remote.ApiClient
-import uz.asaxiy.calltracker.util.NetworkHelper
+import uz.asaxiy.calltracker.domain.dto.Call
+import uz.asaxiy.calltracker.domain.dto.CallRequest
+import uz.asaxiy.calltracker.util.MyLocalStorage
 import uz.asaxiy.calltracker.util.formatPhone
 import java.lang.Long
 import java.util.*
@@ -53,13 +53,15 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
 //                    }
 
                     val call = Call(
-                        date = callDayTime.time.toString(),
+                        date = callDayTime.time,
                         number = phNumber,
                         duration = callDuration ?: 0,
                         type = dircode
                     )
 
-                    if (phNumber.isNotEmpty())
+                    val currentTime = System.currentTimeMillis()
+
+                    if (phNumber.isNotEmpty() && (currentTime - callDayTime.time < 86400000))
                         callLogs.add(call)
                 }
                 managedCursor.close()
@@ -73,22 +75,14 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
     }
 
     private suspend fun uploadToServer(callLogs: ArrayList<Call>) {
-        val database = AppDatabase.getInstance().callDao()
         val apiService = ApiClient.apiService
-
-        database.insertAll(callLogs)
-
-        if (NetworkHelper(context).isNetworkConnected()) {
-            database.getAllCalls().collect {
-                val response = apiService.postCall(list = it)
-                if (response.isSuccessful) {
-                    database.deleteAllCalls()
-                } else {
-                    Log.d("AAAA", "service working: ${response.errorBody()}")
-                }
-            }
+        val response = apiService.postCall(
+            CallRequest(MyLocalStorage.userPhoneNumber ?: "", callLogs)
+        )
+        if (response.isSuccessful) {
+            Log.d("AAAA", "uploadToServer: uploaded")
         } else {
-            Log.d("AAAA", "service working: No internet connection")
+            Log.d("AAAA", "service working: ${response.errorBody()}")
         }
 
     }

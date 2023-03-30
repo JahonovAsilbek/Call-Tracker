@@ -29,4 +29,12 @@ MyLocalStorage {
             }
         }
 
+    var userPhoneNumber: String? = ""
+        get() = sharedPreferences.getString("phone", field)
+        set(value) = sharedPreferences.edit {
+            if (value != null) {
+                it.putString("phone", value)
+            }
+        }
+
 }

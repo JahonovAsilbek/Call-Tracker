@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    private const val BASE_URL = "https://api.asaxiy.uz/"
+    private const val BASE_URL = "https://api.abrand.uz/v1/"
 
     private fun getClient(): Retrofit {
         val interceptor = HttpLoggingInterceptor()

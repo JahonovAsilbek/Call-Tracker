@@ -1,29 +1,74 @@
 package uz.asaxiy.calltracker.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
+import uz.asaxiy.calltracker.R
 import uz.asaxiy.calltracker.databinding.ActivityMain2Binding
+import uz.asaxiy.calltracker.databinding.DialogAuthBinding
+import uz.asaxiy.calltracker.databinding.DialogErrorBinding
+import uz.asaxiy.calltracker.util.MyLocalStorage
 import uz.asaxiy.calltracker.util.gone
+import uz.asaxiy.calltracker.util.text
 
 class WebViewActivity : AppCompatActivity() {
 
     private var _binding: ActivityMain2Binding? = null
     private val binding: ActivityMain2Binding get() = _binding!!
+    private lateinit var viewModel: UploadCallsViewModel
+    private var webViewUrl = MyLocalStorage.url!!
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        initVM()
         super.onCreate(savedInstanceState)
         _binding = ActivityMain2Binding.inflate(layoutInflater)
         setContentView(binding.root)
+        requestPermission()
 
-        loadWebView()
+        checkUser()
 
     }
 
+    private fun checkUser() {
+        if (MyLocalStorage.userPhoneNumber!!.isNotEmpty()) {
+            loadWebView()
+        } else {
+            openAuthDialog()
+        }
+    }
+
+    private fun openAuthDialog() {
+        val dialog = AlertDialog.Builder(this)
+        val view = DialogAuthBinding.inflate(layoutInflater)
+        val alertDialog = dialog.create()
+        alertDialog.setView(view.root)
+        alertDialog.setCancelable(false)
+        alertDialog.show()
+
+        view.btn.setOnClickListener {
+            val url = view.url.text()
+            val phone = view.phone.text()
+
+            if (phone.isNotEmpty() && url.isNotEmpty()) {
+                webViewUrl = url
+                MyLocalStorage.url = url
+                MyLocalStorage.userPhoneNumber = phone
+                alertDialog.cancel()
+                loadWebView()
+            }
+        }
+    }
+
     private fun loadWebView() {
-        val url = "https://asaxiy.uz/uz"
+        val url = webViewUrl
         val extraHeaders: HashMap<String, String> = HashMap()
         extraHeaders["Content-Type"] = "application/x-www-from-urlencoded"
 
@@ -44,18 +89,109 @@ class WebViewActivity : AppCompatActivity() {
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                if (url == "https://asaxiy.uz/?octo_status=succeeded" || url.startsWith("https://pay2.octo.uz")) {
-//                    findNavController().popBackStack()
-                } else {
-                    view.loadUrl(url)
-                }
+                view.loadUrl(url)
                 return true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                binding.progressBar.gone()
+
             }
         }
+    }
+
+    private fun requestPermission() {
+        when {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_CALL_LOG
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                // You can use the API that requires the permission.
+                viewModel.getCallHistory(this)
+            }
+            shouldShowRequestPermissionRationale(Manifest.permission.READ_CALL_LOG) -> {
+                // In an educational UI, explain to the user why your app requires this
+                // permission for a specific feature to behave as expected, and what
+                // features are disabled if it's declined. In this UI, include a
+                // "cancel" or "no thanks" button that lets the user continue
+                // using your app without granting the permission.
+                permissionDialog("Please, accept permission")
+            }
+            else -> {
+                // You can directly ask for the permission.
+                // The registered ActivityResultCallback gets the result of this request.
+                requestPermissionLauncher.launch(
+                    Manifest.permission.READ_CALL_LOG
+                )
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // If request is cancelled, the result arrays are empty.
+        if ((grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED)
+        ) {
+            // Permission is granted. Continue the action or workflow
+            // in your app.
+            viewModel.getCallHistory(this)
+        } else {
+            permissionDialog("Please, accept permission")
+            // Explain to the user that the feature is unavailable because
+            // the feature requires a permission that the user has denied.
+            // At the same time, respect the user's decision. Don't link to
+            // system settings in an effort to convince the user to change
+            // their decision.
+        }
+        return
+
+    }
+
+    // Register the permissions callback, which handles the user's response to the
+    // system permissions dialog. Save the return value, an instance of
+    // ActivityResultLauncher. You can use either a val, as shown in this snippet,
+    // or a lateinit var in your onAttach() or onCreate() method.
+    val requestPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                // Permission is granted. Continue the action or workflow in your
+                // app.
+                viewModel.getCallHistory(this)
+            } else {
+                permissionDialog("Permission denied")
+                // Explain to the user that the feature is unavailable because the
+                // feature requires a permission that the user has denied. At the
+                // same time, respect the user's decision. Don't link to system
+                // settings in an effort to convince the user to change their
+                // decision.
+            }
+        }
+
+    private fun permissionDialog(error: String = "") {
+        val dialog = AlertDialog.Builder(this, R.style.RoundedCornersDialog)
+        val view = DialogErrorBinding.inflate(layoutInflater)
+        val alertDialog = dialog.create()
+        alertDialog.setView(view.root)
+        alertDialog.setCancelable(false)
+        alertDialog.show()
+        view.title.text = error
+        view.close.setOnClickListener {
+            alertDialog.cancel()
+            requestPermissionLauncher.launch(
+                Manifest.permission.READ_CALL_LOG
+            )
+        }
+
+
+    }
+
+    private fun initVM() {
+        viewModel = ViewModelProvider(this)[UploadCallsViewModel::class.java]
     }
 
     override fun onDestroy() {

@@ -11,7 +11,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import uz.asaxiy.calltracker.R
-import uz.asaxiy.calltracker.data.locale.entity.Call
+import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.databinding.ActivityMainBinding
 import uz.asaxiy.calltracker.databinding.DialogErrorBinding
 import uz.asaxiy.calltracker.ui.adapters.CallAdapter
