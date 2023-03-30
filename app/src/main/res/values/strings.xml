@@ -1,7 +1,5 @@
 <resources>
-    <string name="app_name">Call Tracker</string>
-    <string name="action_refresh">refresh</string>
-    <string name="action_upload">upload</string>
+    <string name="app_name">Asaxiy Lawyer</string>
     <string name="server_error">Xatolik yuz berdi!</string>
     <string name="cancel">Yopish</string>
 </resources>

@@ -1,7 +1,9 @@
 package uz.asaxiy.calltracker.domain.dto
 
+import androidx.annotation.Keep
 import com.google.gson.annotations.SerializedName
 
+@Keep
 data class Call(
     @SerializedName("date")
     val date: Long,

@@ -3,28 +3,27 @@ package uz.asaxiy.calltracker.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import uz.asaxiy.calltracker.R
-import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.databinding.ActivityMainBinding
+import uz.asaxiy.calltracker.databinding.DialogAuthBinding
 import uz.asaxiy.calltracker.databinding.DialogErrorBinding
-import uz.asaxiy.calltracker.ui.adapters.CallAdapter
-import uz.asaxiy.calltracker.util.Resource
-import uz.asaxiy.calltracker.util.invisible
-import uz.asaxiy.calltracker.util.visible
-
+import uz.asaxiy.calltracker.util.MyLocalStorage
+import uz.asaxiy.calltracker.util.text
 
 class MainActivity : AppCompatActivity() {
 
     private var _binding: ActivityMainBinding? = null
     private val binding: ActivityMainBinding get() = _binding!!
     private lateinit var viewModel: UploadCallsViewModel
+    private var webViewUrl = MyLocalStorage.url!!
 
     override fun onCreate(savedInstanceState: Bundle?) {
         initVM()
@@ -32,108 +31,71 @@ class MainActivity : AppCompatActivity() {
         _binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        checkUser()
+
+    }
+
+    private fun checkUser() {
+        if (MyLocalStorage.userPhoneNumber!!.isNotEmpty()) {
+            loadWebView()
+        } else {
+            openAuthDialog()
+        }
+    }
+
+    private fun openAuthDialog() {
+        val dialog = AlertDialog.Builder(this)
+        val view = DialogAuthBinding.inflate(layoutInflater)
+        val alertDialog = dialog.create()
+        alertDialog.setView(view.root)
+        alertDialog.setCancelable(false)
+        alertDialog.show()
+
+        view.btn.setOnClickListener {
+            val url = view.url.text()
+            val phone = view.phone.text()
+
+            if (phone.isNotEmpty() && url.isNotEmpty()) {
+                webViewUrl = url
+                MyLocalStorage.url = url
+                MyLocalStorage.userPhoneNumber = phone
+                alertDialog.cancel()
+                loadWebView()
+            }
+        }
+    }
+
+    private fun loadWebView() {
         requestPermission()
+        val url = webViewUrl
+        val extraHeaders: HashMap<String, String> = HashMap()
+        extraHeaders["Content-Type"] = "application/x-www-from-urlencoded"
 
-        observe()
-        setView()
+        binding.webView.loadUrl(url, extraHeaders)
 
-    }
+        binding.webView.settings.javaScriptEnabled = true
+        binding.webView.webViewClient = object : WebViewClient() {
 
-    private fun setView() {
-        binding.toolbar.setOnMenuItemClickListener {
-            when (it.itemId) {
-                R.id.action_upload -> {
-                    viewModel.getCallHistory(context = this, uploadToServer = true)
-                    true
-                }
-                R.id.action_refresh -> {
-                    viewModel.getCallHistory(context = this, uploadToServer = false)
-                    true
-                }
-                else -> false
+            override fun onReceivedError(
+                view: WebView,
+                errorCode: Int,
+                description: String,
+                failingUrl: String
+            ) {
+                Log.d("AAAA", "onReceivedError: $errorCode")
+                Log.d("AAAA", "onReceivedError: $description")
+                Log.d("AAAA", "onReceivedError: $failingUrl")
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                view.loadUrl(url)
+                return true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+
             }
         }
-    }
-
-    private fun observe() {
-        lifecycleScope.launch {
-            viewModel.uploadState.collect { state ->
-                when (state) {
-                    is Resource.NoInternet -> {
-                        handleError("No internet connection")
-                        binding.progressBar.invisible()
-                    }
-                    is Resource.Loading -> {
-                        binding.progressBar.visible()
-                    }
-                    is Resource.Error<*> -> {
-                        handleError(state.message.toString())
-                        binding.progressBar.invisible()
-                    }
-                    is Resource.Success<*> -> {
-                        binding.progressBar.invisible()
-                    }
-                }
-            }
-        }
-
-        lifecycleScope.launch {
-            viewModel.callHistory.collect { state ->
-                when (state) {
-                    is Resource.NoInternet -> {
-                        handleError("No internet connection")
-                        binding.progressBar.invisible()
-                    }
-                    is Resource.Loading -> {
-                        binding.progressBar.visible()
-                    }
-                    is Resource.Error<*> -> {
-                        handleError(state.message.toString())
-                        binding.progressBar.invisible()
-                    }
-                    is Resource.Success<*> -> {
-                        binding.progressBar.invisible()
-
-                        val adapter = CallAdapter(state.data as List<Call>)
-                        binding.rv.adapter = adapter
-                    }
-                }
-            }
-        }
-    }
-
-    private fun initVM() {
-        viewModel = ViewModelProvider(this)[UploadCallsViewModel::class.java]
-    }
-
-    private fun handleError(error: String = "") {
-        val dialog = AlertDialog.Builder(this, R.style.RoundedCornersDialog)
-        val view = DialogErrorBinding.inflate(layoutInflater)
-        val alertDialog = dialog.create()
-        alertDialog.setView(view.root)
-        alertDialog.setCancelable(false)
-        alertDialog.show()
-        view.title.text = error
-        view.close.setOnClickListener { alertDialog.cancel() }
-
-    }
-
-    private fun permissionDialog(error: String = "") {
-        val dialog = AlertDialog.Builder(this, R.style.RoundedCornersDialog)
-        val view = DialogErrorBinding.inflate(layoutInflater)
-        val alertDialog = dialog.create()
-        alertDialog.setView(view.root)
-        alertDialog.setCancelable(false)
-        alertDialog.show()
-        view.title.text = error
-        view.close.setOnClickListener {
-            alertDialog.cancel()
-            requestPermissionLauncher.launch(
-                Manifest.permission.READ_CALL_LOG
-            )
-        }
-
-
     }
 
     private fun requestPermission() {
@@ -209,9 +171,30 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private fun permissionDialog(error: String = "") {
+        val dialog = AlertDialog.Builder(this, R.style.RoundedCornersDialog)
+        val view = DialogErrorBinding.inflate(layoutInflater)
+        val alertDialog = dialog.create()
+        alertDialog.setView(view.root)
+        alertDialog.setCancelable(false)
+        alertDialog.show()
+        view.title.text = error
+        view.close.setOnClickListener {
+            alertDialog.cancel()
+            requestPermissionLauncher.launch(
+                Manifest.permission.READ_CALL_LOG
+            )
+        }
+
+
+    }
+
+    private fun initVM() {
+        viewModel = ViewModelProvider(this)[UploadCallsViewModel::class.java]
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         _binding = null
     }
-
 }

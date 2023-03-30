@@ -9,7 +9,8 @@
         android:id="@+id/url"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:background="#E8E8E8"
+        android:background="@drawable/rounded_shape_8dp"
+        android:backgroundTint="#E8E8E8"
         android:hint="Link"
         android:inputType="textUri"
         android:paddingHorizontal="16dp" />
@@ -19,8 +20,9 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:layout_marginTop="16dp"
-        android:background="#E8E8E8"
-        android:hint="Phone number"
+        android:background="@drawable/rounded_shape_8dp"
+        android:backgroundTint="#E8E8E8"
+        android:hint="ID"
         android:inputType="phone"
         android:paddingHorizontal="16dp" />
 
@@ -30,6 +32,8 @@
         android:layout_height="50dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="16dp"
+        android:background="@drawable/rounded_shape_8dp"
+        android:backgroundTint="#E8E8E8"
         android:text="Continue"
         android:textAllCaps="false" />
 

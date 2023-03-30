@@ -1,13 +1,18 @@
 package uz.asaxiy.calltracker.data.service
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.Cursor
+import android.media.MediaPlayer
 import android.provider.CallLog
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import uz.asaxiy.calltracker.R
 import uz.asaxiy.calltracker.data.remote.ApiClient
 import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.domain.dto.CallRequest
@@ -21,12 +26,16 @@ import kotlin.String
 class CallWorker(val context: Context, workerParams: WorkerParameters) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        getCallLogs()
+//        MediaPlayer.create(context, R.raw.sound).start()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED)
+            getCallLogs()
         return Result.success()
     }
 
     private suspend fun getCallLogs() {
         val callLogs = ArrayList<Call>()
+        var hasNext = true
+
 
         withContext(Dispatchers.IO) {
             val managedCursor: Cursor? = context.contentResolver.query(
@@ -38,7 +47,7 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
                 val type: Int = managedCursor.getColumnIndex(CallLog.Calls.TYPE)
                 val date: Int = managedCursor.getColumnIndex(CallLog.Calls.DATE)
                 val duration: Int = managedCursor.getColumnIndex(CallLog.Calls.DURATION)
-                while (managedCursor.moveToNext()) {
+                while (managedCursor.moveToNext() && hasNext) {
                     val phNumber: String = managedCursor.getString(number).formatPhone()
                     val callType: String = managedCursor.getString(type)
                     val callDate: String = managedCursor.getString(date)
@@ -61,14 +70,17 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
 
                     val currentTime = System.currentTimeMillis()
 
-                    if (phNumber.isNotEmpty() && (currentTime - callDayTime.time < 86400000))
-                        callLogs.add(call)
+                    if (currentTime - callDayTime.time < 86400000) {
+                        if (phNumber.isNotEmpty())
+                            callLogs.add(call)
+                    } else
+                        hasNext = false
                 }
                 managedCursor.close()
 
-
                 uploadToServer(callLogs)
 
+                hasNext = true
             }
         }
 
