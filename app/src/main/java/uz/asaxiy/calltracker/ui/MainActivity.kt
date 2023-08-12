@@ -9,6 +9,7 @@ import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import uz.asaxiy.calltracker.R
@@ -32,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         checkUser()
-
+        requestPermission()
     }
 
     private fun checkUser() {
@@ -40,6 +41,10 @@ class MainActivity : AppCompatActivity() {
             loadWebView()
         } else {
             openAuthDialog()
+//            webViewUrl = "https://lawyer.abrand.uz/"
+//            MyLocalStorage.url = "https://lawyer.abrand.uz/"
+//            MyLocalStorage.userPhoneNumber = "-1"
+//            loadWebView()
         }
     }
 
@@ -66,7 +71,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadWebView() {
-        requestPermission()
         val url = webViewUrl
         val extraHeaders: HashMap<String, String> = HashMap()
         extraHeaders["Content-Type"] = "application/x-www-from-urlencoded"
@@ -125,6 +129,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestPermissions() {
+        ActivityCompat.requestPermissions(
+            this, arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION
+            ), 44
+        )
+    }
+
+    private fun checkPermissions(): Boolean {
+        return ActivityCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>, grantResults: IntArray
@@ -136,6 +156,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             // Permission is granted. Continue the action or workflow
             // in your app.
+            if(!checkPermissions()) requestPermissions()
             viewModel.getCallHistory(this)
         } else {
             permissionDialog("Please, accept permission")

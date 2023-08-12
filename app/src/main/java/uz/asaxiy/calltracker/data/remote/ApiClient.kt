@@ -8,10 +8,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.util.concurrent.TimeUnit
 
-
 object ApiClient {
 
-    private const val BASE_URL = "base url"
+    private const val BASE_URL = "https://api.abrand.uz/v2/"
 
     private fun getClient(): Retrofit {
         val interceptor = HttpLoggingInterceptor()

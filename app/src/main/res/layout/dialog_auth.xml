@@ -11,9 +11,11 @@
         android:layout_height="50dp"
         android:background="@drawable/rounded_shape_8dp"
         android:backgroundTint="#E8E8E8"
+        android:enabled="false"
         android:hint="Link"
         android:inputType="textUri"
-        android:paddingHorizontal="16dp" />
+        android:paddingHorizontal="16dp"
+        android:text="https://lawyer.abrand.uz/" />
 
     <EditText
         android:id="@+id/phone"
