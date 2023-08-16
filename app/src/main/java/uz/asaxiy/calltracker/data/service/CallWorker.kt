@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.database.Cursor
-import android.media.MediaPlayer
 import android.provider.CallLog
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -12,7 +11,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import uz.asaxiy.calltracker.R
 import uz.asaxiy.calltracker.data.remote.ApiClient
 import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.domain.dto.CallRequest
@@ -40,7 +38,7 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
         withContext(Dispatchers.IO) {
             val managedCursor: Cursor? = context.contentResolver.query(
                 CallLog.Calls.CONTENT_URI,
-                null, null, null, null
+                null, null, null, CallLog.Calls.DATE + " DESC"
             )
             if (managedCursor != null) {
                 val number: Int = managedCursor.getColumnIndex(CallLog.Calls.NUMBER)
@@ -73,8 +71,7 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
                     if (currentTime - callDayTime.time < 86400000) {
                         if (phNumber.isNotEmpty())
                             callLogs.add(call)
-                    } else
-                        hasNext = false
+                    }
                 }
                 managedCursor.close()
 
@@ -92,7 +89,7 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
             CallRequest(MyLocalStorage.userPhoneNumber ?: "", callLogs)
         )
         if (response.isSuccessful) {
-            Log.d("AAAA", "uploadToServer: uploaded")
+            Log.d("AAAA", "uploadToServer: uploaded\n$callLogs")
         } else {
             Log.d("AAAA", "service working: ${response.errorBody()}")
         }
