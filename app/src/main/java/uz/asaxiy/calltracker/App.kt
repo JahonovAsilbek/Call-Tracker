@@ -2,6 +2,7 @@ package uz.asaxiy.calltracker
 
 import android.app.Application
 import androidx.work.*
+import uz.asaxiy.calltracker.data.local.AppDatabase
 import uz.asaxiy.calltracker.data.service.CallWorker
 import uz.asaxiy.calltracker.data.service.SendLocationWorker
 import uz.asaxiy.calltracker.util.MyLocalStorage
@@ -13,6 +14,7 @@ class App : Application() {
         MyLocalStorage.init(this)
         startCallWorker()
         startLocationWorker()
+        AppDatabase.init(this)
     }
 
     private fun startLocationWorker() {
@@ -28,7 +30,7 @@ class App : Application() {
     }
 
     private fun startCallWorker() {
-        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build()
         val callWorkRequest: WorkRequest = PeriodicWorkRequestBuilder<CallWorker>(15, TimeUnit.MINUTES).setConstraints(constraints).build()
         WorkManager.getInstance(this).enqueue(callWorkRequest)
     }

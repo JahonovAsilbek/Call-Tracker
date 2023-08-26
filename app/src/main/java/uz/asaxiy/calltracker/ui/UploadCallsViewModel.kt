@@ -8,10 +8,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import uz.asaxiy.calltracker.data.local.AppDatabase
 import uz.asaxiy.calltracker.data.remote.ApiClient
 import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.domain.dto.CallRequest
 import uz.asaxiy.calltracker.util.MyLocalStorage
+import uz.asaxiy.calltracker.util.NetworkHelper
 import uz.asaxiy.calltracker.util.formatPhone
 import java.lang.Long
 import java.util.*
@@ -29,7 +31,7 @@ class UploadCallsViewModel : ViewModel() {
 
             val managedCursor: Cursor? = context.contentResolver.query(
                 CallLog.Calls.CONTENT_URI,
-                null, null, null, null
+                null, null, null, CallLog.Calls.DATE + " DESC"
             )
 
             try {
@@ -71,7 +73,7 @@ class UploadCallsViewModel : ViewModel() {
                     }
                     managedCursor.close()
 
-                    uploadCalls(callLogs)
+                    uploadCalls(callLogs, context)
 
                     hasNext = true
                 }
@@ -81,15 +83,34 @@ class UploadCallsViewModel : ViewModel() {
         }
     }
 
-    private suspend fun uploadCalls(calls: List<Call>) {
-        val response = ApiClient.apiService.postCall(
-            CallRequest(MyLocalStorage.userPhoneNumber ?: "", calls)
-        )
-        if (response.isSuccessful) {
-            Log.d("AAAA", "uploadCallsVM: SUCCESS")
+    private suspend fun uploadCalls(calls: List<Call>, context: Context) {
+        val dao = AppDatabase.getDatabase().dao()
+        if (NetworkHelper(context).isNetworkConnected()) {
+            val apiService = ApiClient.apiService
+
+            //check local database
+            if (dao.callCount() != 0) {
+                dao.allCalls().collect {
+                    val uploadLocalResponse = apiService.postCall(CallRequest(userID = MyLocalStorage.userPhoneNumber!!, it))
+                    if (uploadLocalResponse.isSuccessful) {
+                        dao.clearCalls()
+                    }
+                }
+            }
+
+            val response = apiService.postCall(
+                CallRequest(MyLocalStorage.userPhoneNumber ?: "", calls)
+            )
+            if (response.isSuccessful) {
+                Log.d("AAAA", "uploadToServer VM: uploaded\n$calls")
+            } else {
+                Log.d("AAAA", "service working VM: ${response.errorBody()}")
+            }
         } else {
-            Log.d("AAAA", "uploadCalls VM: FAIL ${response.errorBody()?.string()}")
+            Log.d("AAAA", "uploadToServer VM: local ")
+            dao.insert(calls = calls)
         }
+
     }
 
 }

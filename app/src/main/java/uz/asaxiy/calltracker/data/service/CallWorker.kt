@@ -11,10 +11,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import uz.asaxiy.calltracker.data.local.AppDatabase
 import uz.asaxiy.calltracker.data.remote.ApiClient
 import uz.asaxiy.calltracker.domain.dto.Call
 import uz.asaxiy.calltracker.domain.dto.CallRequest
 import uz.asaxiy.calltracker.util.MyLocalStorage
+import uz.asaxiy.calltracker.util.NetworkHelper
 import uz.asaxiy.calltracker.util.formatPhone
 import java.lang.Long
 import java.util.*
@@ -84,15 +86,34 @@ class CallWorker(val context: Context, workerParams: WorkerParameters) : Corouti
     }
 
     private suspend fun uploadToServer(callLogs: ArrayList<Call>) {
-        val apiService = ApiClient.apiService
-        val response = apiService.postCall(
-            CallRequest(MyLocalStorage.userPhoneNumber ?: "", callLogs)
-        )
-        if (response.isSuccessful) {
-            Log.d("AAAA", "uploadToServer: uploaded\n$callLogs")
+        val dao = AppDatabase.getDatabase().dao()
+        if (NetworkHelper(context).isNetworkConnected()) {
+            val apiService = ApiClient.apiService
+
+            //check local database
+            if (dao.callCount() != 0) {
+                dao.allCalls().collect {
+                    val uploadLocalResponse = apiService.postCall(CallRequest(userID = MyLocalStorage.userPhoneNumber!!, it))
+                    if (uploadLocalResponse.isSuccessful) {
+                        dao.clearCalls()
+                        Log.d("AAAA", "uploadToServer: upload local")
+                    }
+                }
+            }
+
+            val response = apiService.postCall(
+                CallRequest(MyLocalStorage.userPhoneNumber ?: "", callLogs)
+            )
+            if (response.isSuccessful) {
+                Log.d("AAAA", "uploadToServer: uploaded\n$callLogs")
+            } else {
+                Log.d("AAAA", "service working: ${response.errorBody()}")
+            }
         } else {
-            Log.d("AAAA", "service working: ${response.errorBody()}")
+            Log.d("AAAA", "uploadToServer: local ")
+            dao.insert(calls = callLogs)
         }
+
 
     }
 
